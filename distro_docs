@@ -1,0 +1,136 @@
+# font
+ttf-firacode-nerd-font
+noto-fonts
+
+# colorscheme
+catppuccin
+tokyonight (nvim)
+
+# Librewolf performance problem
+- go to
+about:config
+- set the following
+privacy.resistsFingerprinting = false
+webgl.disabled = false
+
+# Chromium tofu (unrendered emojis)
+noto-fonts-emoji
+
+# system localization information
+LANGUAGE = (unset),
+LC_ALL = (unset),
+LC_CTYPE = "C.UTF-8",
+LC_NUMERIC = (unset),
+LC_COLLATE = (unset),
+LC_TIME = (unset),
+LC_MESSAGES = (unset),
+LC_MONETARY = (unset),
+LC_ADDRESS = (unset),
+LC_IDENTIFICATION = (unset),
+LC_MEASUREMENT = (unset),
+LC_PAPER = (unset),
+LC_TELEPHONE = (unset),
+LC_NAME = (unset),
+LANG = "en_US.UTF-8"
+
+# pyenv install 2.7.18
+run the following command:
+CFLAGS="-std=gnu89" pyenv install 2.7.18
+
+
+# nvm install
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
+# node install
+nvm install node
+
+# remove package with its configuration files and folders
+sudo pacman -Rcs 'package-name'
+
+# for recursively removing orphans
+sudo pacman -Rs $(pacman -Qtdq)
+
+# nvim
+nvim-cmp
+autoclose
+remember
+
+# emoji
+rofimoji or rofi-emoji then install xdotool or wtype
+
+# suspend and hibernation (power management)
+S0ix
+S3 (suspend) save state to ram. Most power is cut off except to the ram as it is required for the ram to save the state in
+order to recover from suspend. Recommended for laptop to automatically suspend to this state if the lid is closed or the user
+have been inactive for quite sometime
+S4 (hibernate) Save the state into swap space
+
+https://en.wikipedia.org/wiki/ACPI#Global_states
+
+# bluetooth
+pacman install -Syu bluez bluez-utils
+pacman install -Syu linux-headers (maybe for iwlwifi)
+rfkill unblock identifier
+
+# Touchpad Coasting
+# Coasting is gradually reducing scroll motion after the user stop scrolling by specified amount until the scroll speed reaches 0
+# To enable this, we have to have Synaptics driver enabled for touchpad and enable the option for coasting.
+# it's also advisable to adjust the CoastingSpeed and the CastingFriction. I love coasting so I set the CoastingSpeed to 1 so
+# whenever I scroll it won't stop immediately. For the CoastingSpeed I set it to value of 20
+# Here's the configuration for coasting within /etc/X11/xorg.conf.d/70-synaptics.conf configuration file
+# references:
+# https://man.archlinux.org/man/synaptics.4
+Section "InputClass"
+        ### truncated ###
+        Option "CoastingSpeed" "1"
+        Option "CoastingFriction" "20"
+EndSection
+
+# Apparently, in order to get the heap inspection running on pwndbg there's some tweaks that I have to do
+# First, if I install pwndbg using the setup.sh provided, I have to set an environment variable to get the glibc with debug symbols
+# included
+export DEBUGINFOD_URLS=https://debuginfod.archlinux.org
+# Second, I need to set pwndbg inspect the heap to use heuristic mode. This I can achieve (in current machine that has the
+# pwndbg installed from the official arch repository) by adding the following line to the 
+# /usr/local/lib/pwndbg-gdb/exe/gdbinit.py file.
+try:
+    main()
+
+    gdb.execute("set resolve-heap-via-heuristic force", to_string=True) # add this line
+# for pwndbg that installed using setup.sh, you can add the same line to the appropriate gdbinit.py file
+
+# to run AppImage application, we first have to install fuse
+sudo pacman -S fuse
+
+# Sometimes we want to execute a binary using custom dynamic linker and libc version. For that we can do something like this
+./ld-linux-x86-64.so.2 --library-path . ./chall
+# We can also do this in gdb by running the following command
+gdb --args ./ld-linux-x86-64.so.2 --library-path . ./chall
+# But, this won't loads all the symbols and debugging information from chall binary making it harder to debug or develop an exploit.
+# Fortunately, we can patch the binary and set its interpreter. This is done using patchelf command
+patchelf --set-interpreter ./ld-linux-x86-64 ./chall
+# By now, we the binary will run the specified custom dynamic linker and we can run the binary by the following command
+LD_LIBRARY_PATH=. ./chall
+# But we still need to specify where should the binary loads libc from. Fortunately, we can also set the environment variable to run
+# the program using the GDB's set command. At first I tried the following and it didn't work and the binary can't be executed:
+pwndbg> set environment LD_LIBRARY_PATH .
+# it turned out that executing the binary this way will break how GDB actually execute the binary, this is approximately how GDB
+# will execute the binary when we issue run command
+LD_LIBRARY_PATH=. bash -c './chall'
+# Clearly it's wrong because we don't want /bin/sh to execute using our custom libc due to possible discrepancy in dynamic linker
+# and custom libc version. And the correct way of running the binary is by customizing the exec-wrapper variable to set the
+# environment variable when we run the binary
+set exec-wrapper env 'LD_LIBRARY_PATH=.'
+# This way, when GDB run the binary, it run it with the following command:
+bash -c 'LD_LIBRARY_PATH=. ./chall'
+# https://truthbk.github.io/gdb-ld_preload-and-libc/
+
+
+# It's important to have debug symbols for libc available to make debugging and exploit development easier. To have the debug
+# symbols we first have to download the build-id of the package containing all the debug symbols, for example in Ubuntu for libc6
+# we have to download libc6-dbg package and then extract it to get the build-id files
+$ dpkg-deb -x libc6-dbg ./extracted
+# And then, for gdb to loads symbols from the build-id files we have extracted, we need to set GDB's debug-file-directory
+# variable to points to the debug directory extractd from the package
+pwndbg> set debug-file-directory /extracted/usr/lib/debug
+# https://sourceware.org/gdb/current/onlinedocs/gdb.html/Separate-Debug-Files.html
